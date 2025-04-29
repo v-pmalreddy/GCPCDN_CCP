@@ -35,25 +35,25 @@ resource "google_project_service" "enable-logging-api" {
   project = data.google_project.project.project_id
 }
 
-resource "google_pubsub_topic" "sentinel-tf-topic" {
-  count   = "${var.topic-name != "sentinel-tf-topic" ? 0 : 1}"
+resource "google_pubsub_topic" "sentinel-demo-topic" {
+  count   = "${var.topic-name != "sentinel-demo-topic" ? 0 : 1}"
   name    = var.topic-name
   project = data.google_project.project.project_id
 }
 
 resource "google_pubsub_subscription" "sentinel-subscription" {
   project = data.google_project.project.project_id
-  name    = "sentinel-subscription-tflogs"
+  name    = "sentinel-subscription-demologs"
   topic   = var.topic-name
-  depends_on = [google_pubsub_topic.sentinel-tf-topic]
+  depends_on = [google_pubsub_topic.sentinel-demo-topic]
 }
 
 resource "google_logging_project_sink" "sentinel-sink" {
   project    = data.google_project.project.project_id
   count      = var.organization-id == "" ? 1 : 0
-  name       = "tf-logs-sentinel-sink"
+  name       = "demo-logs-sentinel-sink"
   destination = "pubsub.googleapis.com/projects/${data.google_project.project.project_id}/topics/${var.topic-name}"
-  depends_on = [google_pubsub_topic.sentinel-tf-topic]
+  depends_on = [google_pubsub_topic.sentinel-demo-topic]
 
   filter = "(protoPayload.serviceName=compute.googleapis.com AND (resource.type=gce_backend_service OR resource.type=gce_backend_bucket)) OR resource.type=http_load_balancer"
   unique_writer_identity = true
@@ -61,7 +61,7 @@ resource "google_logging_project_sink" "sentinel-sink" {
 
 resource "google_logging_organization_sink" "sentinel-organization-sink" {
   count = var.organization-id == "" ? 0 : 1
-  name   = "tf-logs-organization-sentinel-sink"
+  name   = "demo-logs-organization-sentinel-sink"
   org_id = var.organization-id
   destination = "pubsub.googleapis.com/projects/${data.google_project.project.project_id}/topics/${var.topic-name}"
 
