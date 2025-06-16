@@ -9,20 +9,25 @@ terraform {
   required_version = ">= 0.15.0"
 }
 
-data "google_project" "project" {
-  project_id = "msccp-test"
+variable "project-id" {
+  type        = string
+  description = "Enter your project ID"
 }
 
 variable "topic-name" {
-  type    = string
-  default = "sentinel-cdn-topic"
+  type        = string
+  default     = "sentinel-test-cdn-topic"
   description = "Name of existing topic"
 }
 
 variable "organization-id" {
-  type    = string
-  default = ""
+  type        = string
+  default     = ""
   description = "Organization id"
+}
+
+data "google_project" "project" {
+  project_id = var.project-id
 }
 
 resource "google_project_service" "enable-logging-api" {
@@ -30,25 +35,25 @@ resource "google_project_service" "enable-logging-api" {
   project = data.google_project.project.project_id
 }
 
-resource "google_pubsub_topic" "sentinel-cdn-topic" {
-  count = "${var.topic-name != "sentinel-cdn-topic" ? 0 : 1}"
-  name = var.topic-name
+resource "google_pubsub_topic" "sentinel-test-cdn-topic" {
+  count   = "${var.topic-name != "sentinel-test-cdn-topic" ? 0 : 1}"
+  name    = var.topic-name
   project = data.google_project.project.project_id
 }
 
 resource "google_pubsub_subscription" "sentinel-subscription" {
   project = data.google_project.project.project_id
-  name  = "sentinel-subscription-cdnlogs"
-  topic = var.topic-name
-  depends_on = [google_pubsub_topic.sentinel-cdn-topic]
+  name    = "sentinel-subscription-test-cdnlogs"
+  topic   = var.topic-name
+  depends_on = [google_pubsub_topic.sentinel-test-cdn-topic]
 }
 
 resource "google_logging_project_sink" "sentinel-sink" {
-  project = data.google_project.project.project_id
-  count = var.organization-id == "" ? 1 : 0
-  name = "cdn-logs-sentinel-sink"
+  project    = data.google_project.project.project_id
+  count      = var.organization-id == "" ? 1 : 0
+  name       = "test-cdn-logs-sentinel-sink"
   destination = "pubsub.googleapis.com/projects/${data.google_project.project.project_id}/topics/${var.topic-name}"
-  depends_on = [google_pubsub_topic.sentinel-cdn-topic]
+  depends_on = [google_pubsub_topic.sentinel-test-cdn-topic]
 
   filter = "(protoPayload.serviceName=compute.googleapis.com AND (resource.type=gce_backend_service OR resource.type=gce_backend_bucket)) OR resource.type=http_load_balancer"
   unique_writer_identity = true
@@ -56,7 +61,7 @@ resource "google_logging_project_sink" "sentinel-sink" {
 
 resource "google_logging_organization_sink" "sentinel-organization-sink" {
   count = var.organization-id == "" ? 0 : 1
-  name   = "cdn-logs-organization-sentinel-sink"
+  name   = "test-cdn-logs-organization-sentinel-sink"
   org_id = var.organization-id
   destination = "pubsub.googleapis.com/projects/${data.google_project.project.project_id}/topics/${var.topic-name}"
 
@@ -65,9 +70,9 @@ resource "google_logging_organization_sink" "sentinel-organization-sink" {
 }
 
 resource "google_project_iam_binding" "log-writer" {
-  count = var.organization-id == "" ? 1 : 0
+  count   = var.organization-id == "" ? 1 : 0
   project = data.google_project.project.project_id
-  role = "roles/pubsub.publisher"
+  role    = "roles/pubsub.publisher"
 
   members = [
     google_logging_project_sink.sentinel-sink[0].writer_identity
@@ -75,27 +80,27 @@ resource "google_project_iam_binding" "log-writer" {
 }
 
 resource "google_project_iam_binding" "log-writer-organization" {
-  count = var.organization-id == "" ? 0 : 1
+  count   = var.organization-id == "" ? 0 : 1
   project = data.google_project.project.project_id
-  role = "roles/pubsub.publisher"
+  role    = "roles/pubsub.publisher"
 
   members = [
     google_logging_organization_sink.sentinel-organization-sink[0].writer_identity
   ]
 }
 
-output "An_output_message"{
+output "An_output_message" {
   value = "Please copy the following values to Sentinel"
 }
 
 output "GCP_project_id" {
-  value       = data.google_project.project.project_id
+  value = data.google_project.project.project_id
 }
 
 output "GCP_project_number" {
-  value       = data.google_project.project.number
+  value = data.google_project.project.number
 }
 
 output "GCP_subscription_name" {
-  value       = google_pubsub_subscription.sentinel-subscription.name
+  value = google_pubsub_subscription.sentinel-subscription.name
 }
